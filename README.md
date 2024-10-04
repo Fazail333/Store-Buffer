@@ -1,26 +1,31 @@
-# Store-Buffer
-A store buffer is a temporary storage area that holds data being written to memory. Its primary role is to improve performance by allowing the CPU to continue executing instructions while the write operation to memory is being completed.
+# Store Buffer in UETRV_Pcore
 
-## Enhancements in UETRV_Pcore
-We are implementing a store buffer in the UETRV_Pcore to improve memory write latency. This store buffer will be inserted between the load/store unit (LSU) and the data cache (dcache), allowing the system to decouple memory write operations from the execution of instructions. By doing so, we aim to enhance overall performance by reducing the time the CPU spends waiting for memory writes to complete.
+## Overview
+A **store buffer** is a temporary holding area for data that is being written to memory. Its key function is to improve system performance by allowing the CPU to continue executing instructions while memory write operations complete in the background.
 
-## Key Functions and Benefits of Store Buffers
-- Store buffers allow the CPU to decouple the execution of instructions from the actual writing of data to memory. This means the CPU can continue processing while the memory system handles the write operation.
-- Memory writes can be slow due to various factors like bus contention or memory access times. By using a store buffer, the CPU doesn't have to wait for these writes to complete, reducing the overall latency of instruction execution.
+In **UETRV_Pcore**, we are implementing a store buffer between the Load/Store Unit (LSU) and the data cache (dcache). This enhancement decouples memory write operations from instruction execution, effectively reducing CPU stalls caused by waiting for memory writes, thus boosting overall performance.
 
-## Operation
+## Benefits of the Store Buffer
+
+- **Improved Instruction Execution**: Store buffers enable the CPU to execute instructions independently of slow memory write processes. The data is temporarily held in the buffer while the CPU processes subsequent instructions, reducing execution delays.
+  
+- **Reduced Memory Latency**: Factors like bus contention or slow memory access times can cause delays in memory writes. The store buffer mitigates these delays by handling writes asynchronously, allowing the CPU to stay productive.
+  
+- **Efficient Memory Operations**: When the store buffer has available space, store instructions write to it immediately. The buffer then handles the memory writes in the background, improving efficiency in high-traffic scenarios.
+
+## Operation Flow
+
 When a store instruction is executed:
-- The data is first written to the store buffer.
-- The CPU continues with subsequent instructions without waiting for the data to be written to main memory.
-- The store buffer eventually writes the data to memory, when it have data or not empty.
+1. The data is first written to the store buffer.
+2. The CPU immediately continues executing subsequent instructions without waiting for the store to complete.
+3. The store buffer then writes data to memory when possible, ensuring that store operations are handled efficiently without stalling the CPU.
 
 ## Pinout Diagrams
 
-Pinout of LSU and Dcache in UETRV-Pcore.
+### LSU to Dcache (Without Store Buffer)
 
-![pinout-lsu2dcache](./docs/pinout-lsu-dcache.png)
+![LSU to Dcache](./docs/pinout-lsu-dcache.png)
 
-Pinout of LSU, Store Buffer and Dcache in UETRV-Pcore
+### LSU to Store Buffer to Dcache (With Store Buffer)
 
-
-![pinout-lsu2dcache](./docs/pinout-lsu-stb-dcache.png)
+![LSU to Store Buffer to Dcache](./docs/pinout-lsu-stb-dcache.png)
