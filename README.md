@@ -29,3 +29,15 @@ When a store instruction is executed:
 ### LSU to Store Buffer to Dcache (With Store Buffer)
 
 ![LSU to Store Buffer to Dcache](./docs/pinout-lsu-stb-dcache.png)
+
+## Store Buffer Diagram
+
+The datapath and the controller of the store buffer design is in the below diagrams:
+
+### Datapath
+
+![Datapath](./docs/store-buffer-datapath.png)
+
+### Controller
+
+![Datapath](./docs/store-buffer-controller.png)
