@@ -34,6 +34,14 @@ When a store instruction is executed:
 
 The datapath and the controller of the store buffer design is in the below diagrams:
 
+### Top Level Diagram
+
+![alt text](docs/store_buffer_tld.png)
+
+### Datapath and Controller
+
+![alt text](docs/datapath_controller.png)
+
 ### Datapath
 
 ![Datapath](./docs/store-buffer-datapath.png)
