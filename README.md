@@ -46,6 +46,12 @@ The datapath and the controller of the store buffer design is in the below diagr
 
 ![Datapath](./docs/store-buffer-datapath.png)
 
-### Controller
+### Controllers
 
-![Datapath](./docs/store-buffer-controller.png)
+#### LSU-STB-Controller
+
+![LSU-Controller](./docs/stb_lsu_controller.png)
+
+#### STB-CACHE-Controller
+
+![LSU-Controller](./docs/stb-cache-controller.png)
