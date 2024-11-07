@@ -16,3 +16,4 @@ xsim.dir
 obj_dir 
 work
 .Xil
+store_buffer_up
