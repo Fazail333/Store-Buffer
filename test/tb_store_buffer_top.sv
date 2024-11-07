@@ -2,10 +2,12 @@
 module tb_store_buffer_top;
 
     // Parameters
+    parameter NUM_RAND_TESTS = 100;
     parameter ADDR_WIDTH = 32;
     parameter DATA_WIDTH = 32;
     parameter BYTE_SEL_WIDTH = 4;
     parameter BLEN = 4;
+    parameter BLEN_IDX = $clog2(BLEN);
 
     // DUT signals
     logic                       clk;
@@ -34,6 +36,10 @@ module tb_store_buffer_top;
     logic                       stb2dcache_req;       // Store request from Store Buffer
     logic                       stb2dcache_empty;
     logic                       dmem_sel_o;           // Data memory select from Store Buffer
+
+    // monitor and queue signals
+    logic [DATA_WIDTH-1:0] m_mem [0:BLEN-1];
+    logic [BLEN_IDX-1:0]  m_wr_idx, m_rd_idx;
 
     // Instantiate the DUT (Device Under Test)
     store_buffer_top #(
@@ -73,19 +79,24 @@ module tb_store_buffer_top;
     );
 
     // Clock generation
-    always #5 clk = ~clk;
+    initial begin
+        clk = 0;
+        forever begin
+            clk = #5 ~clk;
+        end
+    end 
 
     task init_sequence;
-        clk                 = 0;
-        rst_n               = 0;
-        dmem_sel_i          = 0;
-        lsummu2stb_w_en     = 0;
-        lsummu2stb_req      = 0;
-        dcache2stb_ack      = 0;
+        clk                 <= 0;
+        rst_n               <= 0;
+        dmem_sel_i          <= 0;
+        lsummu2stb_w_en     <= 0;
+        lsummu2stb_req      <= 0;
+        dcache2stb_ack      <= 0;
 
-        lsummu2stb_addr     = 32'b0;
-        lsummu2stb_wdata    = 32'b0;
-        lsummu2stb_sel_byte = 4'b1111;    
+        lsummu2stb_addr     <= 32'b0;
+        lsummu2stb_wdata    <= 32'b0;
+        lsummu2stb_sel_byte <= 4'b1111;    
     endtask
 
     task reset_apply;
@@ -97,71 +108,103 @@ module tb_store_buffer_top;
     // Test stimulus
     initial begin
         // Initialize signals
-        
-        init_sequence();
+        $display("Initailize Signals\n");
+        init_sequence;
+
         // Assert reset
-        $display("Assert Reset");
-        reset_apply();
+        $display("Assert Reset\n");
+        reset_apply;
 
-        // Test 1: Normal Write Operation
-        $display("Test 1: Normal Write Operation");
-        
-        write_to_buffer(32'h1000, 32'hAAAA_BBBB, 4'b1111);
-        write_to_buffer(32'h1004, 32'hCCCC_DDDD, 4'b1111);
-        write_to_buffer(32'h1008, 32'hBBBB_aaaa, 4'b1111);
-        write_to_buffer(32'h100c, 32'hffff_DDDD, 4'b1111);
-        //write_to_buffer(32'h2000, 32'hAAAA_BBBB, 4'b1111);
-        //write_to_buffer(32'h1004, 32'hCCCC_DDDD, 4'b1111);
-        @(posedge clk);
+        fork
+            monitor;
+            queue;
+        join_none
 
-        // Test 3: Write to Cache (Cache ready, Buffer not empty)
-        $display("Test 3: Write to Cache");
-        while (!stb2dcache_empty) begin
-            write_to_cache();
-        end
-        @(posedge clk);
+        // Random Tests
+        $display("Random Tests\n");
+        fork
+            lsu_driver;
+            cache_driver;
+        join
+
+        // store buffer should be empty after all data write to cache
+        repeat(2) @(posedge clk);
+        $display("store buffer empty(1) or not(0): %b",stb2dcache_empty);
         
         // End the simulation
-        $display("End of Simulation");
+        $display("End of Simulation\n");
         $finish;
     end
 
     // Task to write to store buffer
-    task write_to_buffer(
-        input [ADDR_WIDTH-1:0] addr, 
-        input [DATA_WIDTH-1:0] data, 
-        input [BYTE_SEL_WIDTH-1:0] byte_sel
-    );
-        begin
-            lsummu2stb_addr         <= addr;
-            lsummu2stb_wdata         <= data;
-            lsummu2stb_sel_byte     <= byte_sel;
-            dmem_sel_i   <= 1;
+    task lsu_driver;
+
+        for(int i = 0; i<NUM_RAND_TESTS; i++) begin
+            lsummu2stb_addr[4:0]    <= $urandom;
+            lsummu2stb_wdata        <= $urandom;
+            lsummu2stb_sel_byte     <= $urandom;
+            dmem_sel_i              <= 1;
             lsummu2stb_w_en         <= 1;
-            lsummu2stb_req       <= 1;  // actually valid signal
+            lsummu2stb_req          <= 1;
             @(posedge clk);
-            while (!stb2lsummu_ack) begin // actually ready signal
-                @(posedge clk);
+            while (stb2lsummu_stall)begin
+                @(posedge clk);  
             end
-            lsummu2stb_w_en <= 0;
-            lsummu2stb_req <= 0;
-            @(posedge clk);
+            lsummu2stb_req          <= 0; 
+            lsummu2stb_w_en         <= 0;
+
+            while (!stb2lsummu_ack) begin
+                    @(posedge clk);
+            end
         end
     endtask
 
-    logic [31:0]dcache[0:31];
-    task write_to_cache();
-        dcache2stb_ack = 0;
-        @(posedge clk);
-        while (!stb2dcache_req)   
+    task cache_driver;
+        for(int i = 0; i<NUM_RAND_TESTS; i++) begin
+            dcache2stb_ack <= 0;
+
             @(posedge clk);
-        
-        if (stb2dcache_w_en) begin
-            dcache[stb2dcache_addr] = stb2dcache_wdata;
-        end  
-        dcache2stb_ack = 1;
-        repeat(2)@(posedge clk);
-        dcache2stb_ack = 0;   
+            while (!stb2dcache_req)   
+                @(posedge clk);
+            
+            repeat($urandom % 4) @(posedge clk);
+            // suppose that data cache send the ack after some cycles
+
+            dcache2stb_ack <= 1;
+
+            @(posedge clk);
+            dcache2stb_ack <= 0;
+        end
+    endtask
+
+    // Writing the data in this temporary queue
+    task  queue;
+        assign m_wr_idx = 0;
+        while (1) begin
+            @(posedge clk);
+            if (stb2lsummu_ack) begin
+                m_mem[m_wr_idx] = lsummu2stb_wdata;
+                assign m_wr_idx = m_wr_idx + 1;                
+            end 
+        end
+    endtask
+
+    // Read the data from the queue and then compare it with store buffer output data
+    task monitor;
+        assign m_rd_idx = 0;
+        while(1) begin
+            @(posedge clk);
+            if (dcache2stb_ack) begin
+                if (m_mem [m_rd_idx] != stb2dcache_wdata) begin
+                    $display (">>> Test Failed :(");
+                    $display ("m_rd_idx = %0h: lsummu2stb = %0h || stb2dcache = %0h \n",m_rd_idx, m_mem [m_rd_idx], stb2dcache_wdata);
+                end else begin
+                    $display ("Passed :)  <3");
+                    $display ("m_rd_idx = %0h: lsummu2stb = %0h || stb2dcache = %0h \n",m_rd_idx, m_mem [m_rd_idx], stb2dcache_wdata);
+                end
+                assign m_rd_idx = m_rd_idx + 1;
+            end
+        end
     endtask
 
 endmodule
