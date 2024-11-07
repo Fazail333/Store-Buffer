@@ -37,22 +37,30 @@ module store_buffer_datapath #(
 
     // Buffer Counter (to track read and write index)
     logic [$clog2(BLEN)-1:0]  rd_index;
-    logic [$clog2(BLEN)-1:0]  wr_index;
+    logic [$clog2(BLEN)-1:0]  wr_index, wr_index_comp;
 
-    // counters for read and write operaitons
+    // counter for write operaitons
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             wr_index <= 0;
-            rd_index <= 0;
         end
         else if (stb_wr_en) begin
             wr_index <= wr_index + 1;
+        end
+        else begin
+            wr_index <= wr_index;
+        end
+    end
+
+    // counter for read operaitons
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            rd_index <= 0;
         end
         else if (stb_rd_en) begin
             rd_index <= rd_index + 1;
         end
         else begin
-            wr_index <= wr_index;
             rd_index <= rd_index;
         end
     end
@@ -60,7 +68,6 @@ module store_buffer_datapath #(
     // Write/Read logic
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            wr_index <= 0;
             valid_buf <= '0;
         end 
         else if (stb_wr_en) begin
@@ -68,35 +75,30 @@ module store_buffer_datapath #(
             addr_buf     [wr_index] <= lsummu2stb_addr;
             data_buf     [wr_index] <= lsummu2stb_wdata;
             sel_byte_buf [wr_index] <= lsummu2stb_sel_byte;
-            valid_buf    [wr_index] <= 1'b1;  
-        end
-        else if (stb_rd_en && (valid_buf[rd_index] == 1'b1)) begin
-            valid_buf    [rd_index] <= 1'b0;  // Mark entry as invalid
-        end            
+        end     
         else begin
-            addr_buf     <= addr_buf;
-            data_buf     <= data_buf;
-            sel_byte_buf <= sel_byte_buf;
-            valid_buf    <= valid_buf;
+            addr_buf     [rd_index] <= addr_buf     [rd_index];
+            data_buf     [rd_index] <= data_buf     [rd_index];
+            sel_byte_buf [rd_index] <= sel_byte_buf [rd_index];
         end
     end
-    
-    // Read mux
+
     always_comb begin
-        if (rd_sel && (valid_buf[rd_index] == 1'b1)) begin
+        if (rd_sel) begin
             stb2dcache_addr     = addr_buf      [rd_index];
-            stb2dcache_wdata     = data_buf      [rd_index];
+            stb2dcache_wdata    = data_buf      [rd_index];
             stb2dcache_sel_byte = sel_byte_buf  [rd_index];
         end
         else begin
             stb2dcache_addr     = '0;
-            stb2dcache_wdata     = '0;
+            stb2dcache_wdata    = '0;
             stb2dcache_sel_byte = '0;
         end
     end
 
-    // full/empty logic
-    assign stb_full  = ($signed(valid_buf) == (-1)) ? 1'b1 : 1'b0;
-    assign stb_empty = ($signed(valid_buf) == '0)   ? 1'b1 : 1'b0;
+    assign wr_index_comp = wr_index + 1;
+    
+    assign stb_full = (rd_index == (wr_index_comp)) ? 1'b1 : 1'b0;
+    assign stb_empty = (rd_index == wr_index) ? 1'b1 : 1'b0;
 
 endmodule

@@ -65,22 +65,30 @@ module stb_cache_controller (
             end
 
             SB_CACHE_WRITE: begin
-                if (dcache2stb_ack) begin
-                    stb2dcache_w_en = 1'b0; 
-                    stb2dcache_req  = 1'b0;
-                    stb_rd_en       = 1'b1;
-                    rd_sel          = 1'b1;
-                    dmem_sel_o      = 1'b1;
-                    next_state      = IDLE;  // Return to idle after cache acknowledges write
-                    
-                end
-                else begin
-                    stb2dcache_req  = 1'b1;  // Request cache write
-                    rd_sel          = 1'b1;  // Read selection for store buffer
+                if (!dcache2stb_ack && !stb_empty) begin
+                    stb2dcache_req  = 1'b1;  
+                    rd_sel          = 1'b1;   
                     stb2dcache_w_en = 1'b1;
                     dmem_sel_o      = 1'b1;
                     stb_rd_en       = 1'b0;
-                    next_state      = SB_CACHE_WRITE;
+                    next_state      = SB_CACHE_WRITE;  // Stay SB_CACHE_WRITE state till store buffer contain data
+                    
+                end
+                else if (dcache2stb_ack && !stb_empty) begin
+                    stb2dcache_req  = 1'b1;  
+                    rd_sel          = 1'b1;   
+                    stb2dcache_w_en = 1'b1;
+                    dmem_sel_o      = 1'b1;
+                    stb_rd_en       = 1'b1;
+                    next_state      = SB_CACHE_WRITE;  // Stay SB_CACHE_WRITE state till all data written to cache then cache acknowledges set
+                end
+                else if (stb_empty) begin
+                    stb2dcache_req  = 1'b0;  
+                    rd_sel          = 1'b0;  
+                    stb2dcache_w_en = 1'b0;
+                    dmem_sel_o      = 1'b0;
+                    stb_rd_en       = 1'b0;
+                    next_state      = IDLE;
                 end
             end
 

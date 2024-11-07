@@ -47,37 +47,72 @@ module lsu_stb_controller (
         case (current_state)
             SB_IDLE: begin
                 if (dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req && !stb_full) begin
-                    stb_wr_en  = 1'b1;  // Enable write to buffer
-                    next_state = SB_WRITE;
+                    stb_wr_en        = 1'b1;  // Enable write to buffer
+                    stb2lsummu_stall = 1'b0;
+                    stb2lsummu_ack   = 1'b0;
+                    next_state       = SB_WRITE;
                 end
                 else if (dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req && stb_full) 
                 begin
                     stb2lsummu_stall = 1'b1;
-                    next_state = SB_FULL;   
+                    stb_wr_en        = 1'b0;
+                    stb2lsummu_ack   = 1'b0;
+                    next_state       = SB_FULL;   
                 end
             end
 
             SB_WRITE: begin
-                if (!stb_empty) 
-                begin
-                    stb2lsummu_ack = 1'b1;
-                    next_state = SB_IDLE;  // Transition to stb_full state if buffer is stb_full
+                stb2lsummu_ack   = 1'b1;
+                if (dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req && !stb_full)begin
+                    stb_wr_en        = 1'b1;  // Enable write to buffer
+                    stb2lsummu_stall = 1'b0;
+                    next_state       = SB_WRITE;
                 end
+                else if (dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req && stb_full)begin
+                    stb_wr_en        = 1'b0;
+                    stb2lsummu_stall = 1'b1;
+                    next_state       = SB_FULL; 
+                end
+                else if (!stb_empty) begin
+                    if (dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req) begin
+                        stb_wr_en        = 1'b1;
+                        next_state       = SB_WRITE;  // Transition to stb_full state if buffer is stb_full
+                    end
+                    else begin
+                        stb_wr_en        = 1'b0;
+                        next_state       = SB_IDLE;
+                    end
+                end 
             end
 
             SB_FULL: begin
                 stb2lsummu_stall = 1'b1;  // Stall signal if buffer is stb_full
-                if (!stb_full) begin
-                    stb_wr_en   = 1'b1;
-                    next_state  = SB_WRITE;  // Go to idle once buffer is not stb_full
+                if (dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req && !stb_full) begin
+                    stb_wr_en        = 1'b1;
+                    stb2lsummu_stall = 1'b0;
+                    stb2lsummu_ack   = 1'b0;
+                    next_state       = SB_WRITE;  // Go to idle once buffer is not stb_full
                 end
+                else if(dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req && stb_full) begin
+                    stb_wr_en        = 1'b0;
+                    stb2lsummu_ack   = 1'b0;
+                    next_state       = SB_FULL;
+                end
+                /*else if (!(dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req)) begin
+                    stb_wr_en        = 1'b0;
+                    stb2lsummu_stall = 1'b0;
+                    stb2lsummu_ack   = 1'b0;
+                    next_state       = SB_IDLE;
+                end*/
                 else begin
-                    next_state = SB_FULL;
-                end
-        
+                    stb_wr_en        = 1'b0;
+                    stb2lsummu_stall = 1'b0;
+                    stb2lsummu_ack   = 1'b0;
+                    next_state       = SB_IDLE;
+                end        
             end
 
-            default: next_state = SB_IDLE;
+            default: next_state      = SB_IDLE;
         endcase
     end
 
