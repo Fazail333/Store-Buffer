@@ -36,16 +36,17 @@ module store_buffer_datapath #(
     logic [BLEN-1:0]           valid_buf;                   // Valid entries in buffer
 
     // Buffer Counter (to track read and write index)
-    logic [$clog2(BLEN)-1:0]  rd_index;
-    logic [$clog2(BLEN)-1:0]  wr_index, wr_index_comp;
+    logic [$clog2(BLEN)-1:0]  rd_index, rd_index_add;
+    logic [$clog2(BLEN)-1:0]  wr_index, wr_index_comp, wr_index_add;
 
     // counter for write operaitons
+    assign wr_index_add = (wr_index == BLEN-1) ? '0: (wr_index + 1);
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             wr_index <= 0;
         end
         else if (stb_wr_en) begin
-            wr_index <= wr_index + 1;
+            wr_index <= wr_index_add;
         end
         else begin
             wr_index <= wr_index;
@@ -53,12 +54,13 @@ module store_buffer_datapath #(
     end
 
     // counter for read operaitons
+    assign rd_index_add = (rd_index == BLEN-1) ? '0: (rd_index + 1);
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             rd_index <= 0;
         end
         else if (stb_rd_en) begin
-            rd_index <= rd_index + 1;
+            rd_index <= rd_index_add;
         end
         else begin
             rd_index <= rd_index;
@@ -68,7 +70,9 @@ module store_buffer_datapath #(
     // Write/Read logic
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            valid_buf <= '0;
+            addr_buf     <= addr_buf    ;
+            data_buf     <= data_buf    ;
+            sel_byte_buf <= sel_byte_buf;
         end 
         else if (stb_wr_en) begin
             // Write new values to buffer at wr_index
@@ -96,7 +100,7 @@ module store_buffer_datapath #(
         end
     end
 
-    assign wr_index_comp = wr_index + 1;
+    assign wr_index_comp = (wr_index == BLEN-1) ? '0: wr_index + 1;
     
     assign stb_full = (rd_index == (wr_index_comp)) ? 1'b1 : 1'b0;
     assign stb_empty = (rd_index == wr_index) ? 1'b1 : 1'b0;

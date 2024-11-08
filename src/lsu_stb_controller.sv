@@ -70,20 +70,24 @@ module lsu_stb_controller (
                 if (dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req && !stb_full)begin
                     stb_wr_en        = 1'b1;  // Enable write to buffer
                     stb2lsummu_stall = 1'b0;
+                    //stb2lsummu_ack   = 1'b1;
                     next_state       = SB_WRITE;
                 end
                 else if (dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req && stb_full)begin
                     stb_wr_en        = 1'b0;
                     stb2lsummu_stall = 1'b1;
+                    //stb2lsummu_ack   = 1'b0;
                     next_state       = SB_FULL; 
                 end
                 else if (!stb_empty) begin
                     if (dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req) begin
                         stb_wr_en        = 1'b1;
+                        //stb2lsummu_ack   = 1'b1;
                         next_state       = SB_WRITE;  // Transition to stb_full state if buffer is stb_full
                     end
                     else begin
                         stb_wr_en        = 1'b0;
+                        //stb2lsummu_ack   = 1'b0;
                         next_state       = SB_IDLE;
                     end
                 end 
