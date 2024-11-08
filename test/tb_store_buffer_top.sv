@@ -6,7 +6,7 @@ module tb_store_buffer_top;
     parameter ADDR_WIDTH = 32;
     parameter DATA_WIDTH = 32;
     parameter BYTE_SEL_WIDTH = 4;
-    parameter BLEN = 4;
+    parameter BLEN = 7;
     parameter BLEN_IDX = $clog2(BLEN);
 
     // DUT signals
@@ -138,7 +138,6 @@ module tb_store_buffer_top;
 
     // Task to write to store buffer
     task lsu_driver;
-
         for(int i = 0; i<NUM_RAND_TESTS; i++) begin
             lsummu2stb_addr[4:0]    <= $urandom;
             lsummu2stb_wdata        <= $urandom;
@@ -154,9 +153,15 @@ module tb_store_buffer_top;
             lsummu2stb_w_en         <= 0;
 
             while (!stb2lsummu_ack) begin
-                    @(posedge clk);
+                @(posedge clk);
             end
         end
+        lsummu2stb_addr[4:0]    <= 0;
+        lsummu2stb_wdata        <= 0;
+        lsummu2stb_sel_byte     <= 0;
+        dmem_sel_i              <= 0;
+        lsummu2stb_w_en         <= 0;
+        lsummu2stb_req          <= 0;
     endtask
 
     task cache_driver;
@@ -182,9 +187,11 @@ module tb_store_buffer_top;
         assign m_wr_idx = 0;
         while (1) begin
             @(posedge clk);
-            if (stb2lsummu_ack) begin
-                m_mem[m_wr_idx] = lsummu2stb_wdata;
-                assign m_wr_idx = m_wr_idx + 1;                
+            if (lsummu2stb_w_en) begin
+                if (!stb2lsummu_stall) begin
+                    m_mem[m_wr_idx] = lsummu2stb_wdata;
+                    assign m_wr_idx = (m_wr_idx == BLEN-1) ? '0: (m_wr_idx + 1);                
+                end
             end 
         end
     endtask
@@ -202,7 +209,7 @@ module tb_store_buffer_top;
                     $display ("Passed :)  <3");
                     $display ("m_rd_idx = %0h: lsummu2stb = %0h || stb2dcache = %0h \n",m_rd_idx, m_mem [m_rd_idx], stb2dcache_wdata);
                 end
-                assign m_rd_idx = m_rd_idx + 1;
+                assign m_rd_idx = (m_rd_idx == BLEN-1)? '0: (m_rd_idx + 1);
             end
         end
     endtask
