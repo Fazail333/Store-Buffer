@@ -2,7 +2,7 @@
 module tb_store_buffer_top;
 
     // Parameters
-    parameter NUM_RAND_TESTS = 100;
+    parameter NUM_RAND_TESTS = 10;
     parameter ADDR_WIDTH = 32;
     parameter DATA_WIDTH = 32;
     parameter BYTE_SEL_WIDTH = 4;

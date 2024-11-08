@@ -52,12 +52,16 @@ module lsu_stb_controller (
                     stb2lsummu_ack   = 1'b0;
                     next_state       = SB_WRITE;
                 end
-                else if (dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req && stb_full) 
-                begin
+                else if (dmem_sel_i && lsummu2stb_w_en && lsummu2stb_req && stb_full) begin
                     stb2lsummu_stall = 1'b1;
                     stb_wr_en        = 1'b0;
                     stb2lsummu_ack   = 1'b0;
                     next_state       = SB_FULL;   
+                end else begin
+                    stb2lsummu_stall = 1'b0;
+                    stb_wr_en        = 1'b0;
+                    stb2lsummu_ack   = 1'b0;
+                    next_state       = SB_IDLE;
                 end
             end
 
