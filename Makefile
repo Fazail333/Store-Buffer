@@ -1,8 +1,18 @@
+<<<<<<< HEAD
 SRC_SV := src/lsu_stb_controller.sv        \
           src/stb_cache_controller.sv      \
           src/store_buffer_top.sv          \
           src/store_buffer_datapath.sv              \
           test/tb_store_buffer_top.sv
+=======
+SRC_SV:= src/lsu_stb_controller.sv		\
+	src/stb_cache_controller.sv 		\
+	src/store_buffer_top.sv				\
+	src/store_buffer_datapath.sv		\
+	test/tb_store_buffer_top.sv
+	
+DEFS:= defines/*.svh
+>>>>>>> c57e843 (docs and src are updated)
 
 DEFINES_VER := src/defines/verilator.svh
 
@@ -103,7 +113,7 @@ vsim_compile: $(wildcard *.sv)
 	@echo "Creating work library..."
 	vlib $(WORK_DIR)
 	@echo "Compiling source files..."
-	vlog -work $(WORK_DIR) $(SRC_SV)
+	vlog -work $(WORK_DIR) $(SRC_SV) $(DEFS)
 
 # Run the simulation and generate WLF file
 simulate: vsim_compile

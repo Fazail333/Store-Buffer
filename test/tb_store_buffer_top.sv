@@ -6,7 +6,7 @@ module tb_store_buffer_top;
     parameter ADDR_WIDTH = 32;
     parameter DATA_WIDTH = 32;
     parameter BYTE_SEL_WIDTH = 4;
-    parameter BLEN = 7;
+    parameter BLEN = 4;
     parameter BLEN_IDX = $clog2(BLEN);
 
     // DUT signals
@@ -36,6 +36,9 @@ module tb_store_buffer_top;
     logic                       stb2dcache_req;       // Store request from Store Buffer
     logic                       stb2dcache_empty;
     logic                       dmem_sel_o;           // Data memory select from Store Buffer
+
+    logic [DATA_WIDTH-1:0]      dcache2stb_rdata;
+    logic [DATA_WIDTH-1:0]      stb2lsummu_rdata;
 
     // monitor and queue signals
     logic [DATA_WIDTH-1:0] m_mem [0:BLEN-1];
@@ -74,8 +77,10 @@ module tb_store_buffer_top;
         .dmem_sel_o             (dmem_sel_o),
 
         //dcache --> store_buffer_top
-        .dcache2stb_ack         (dcache2stb_ack)
+        .dcache2stb_ack         (dcache2stb_ack),
 
+        .dcache2stb_rdata       (dcache2stb_rdata),
+        .stb2lsummu_rdata       (stb2lsummu_rdata)
     );
 
     // Clock generation
@@ -149,12 +154,24 @@ module tb_store_buffer_top;
             while (stb2lsummu_stall)begin
                 @(posedge clk);  
             end
-            lsummu2stb_req          <= 0; 
-            lsummu2stb_w_en         <= 0;
 
-            while (!stb2lsummu_ack) begin
-                @(posedge clk);
+            repeat(1)@(posedge clk);
+            lsummu2stb_req          <= 0;
+            if (lsummu2stb_w_en == 0) begin
+                while (!stb2lsummu_ack) begin
+                    @(posedge clk);
+                end
+                lsummu2stb_req          = 0;
+                //@(posedge clk);
             end
+            // else begin
+            //     lsummu2stb_req          <= 0; 
+            //     lsummu2stb_w_en         <= 0;
+            //     while (!stb2lsummu_ack) begin
+            //         @(posedge clk);
+            //     end
+            // end
+            
         end
         lsummu2stb_addr[4:0]    <= 0;
         lsummu2stb_wdata        <= 0;
@@ -172,18 +189,20 @@ module tb_store_buffer_top;
             while (!stb2dcache_req)   
                 @(posedge clk);
             
-            repeat($urandom % 4) @(posedge clk);
+            repeat(2) @(posedge clk);
             // suppose that data cache send the ack after some cycles
 
-            dcache2stb_ack <= 1;
+            dcache2stb_rdata <= $urandom;
+            dcache2stb_ack   <= 1;
 
             @(posedge clk);
+            dcache2stb_rdata <= $urandom;
             dcache2stb_ack <= 0;
         end
     endtask
 
     // Writing the data in this temporary queue
-    task  queue;
+    task queue;
         assign m_wr_idx = 0;
         while (1) begin
             @(posedge clk);
@@ -201,6 +220,7 @@ module tb_store_buffer_top;
         assign m_rd_idx = 0;
         while(1) begin
             @(posedge clk);
+            if (stb2dcache_w_en) begin
             if (dcache2stb_ack) begin
                 if (m_mem [m_rd_idx] != stb2dcache_wdata) begin
                     $display (">>> Test Failed :(");
@@ -210,6 +230,7 @@ module tb_store_buffer_top;
                     $display ("m_rd_idx = %0h: lsummu2stb = %0h || stb2dcache = %0h \n",m_rd_idx, m_mem [m_rd_idx], stb2dcache_wdata);
                 end
                 assign m_rd_idx = (m_rd_idx == BLEN-1)? '0: (m_rd_idx + 1);
+            end
             end
         end
     endtask
